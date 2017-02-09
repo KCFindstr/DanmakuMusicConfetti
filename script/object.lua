@@ -23,7 +23,6 @@ end
 function destroy(cur)
 	GP.remove(cur)
 	cur.active=false
-	cur.removed=true
 	table.delete(bullet,cur)
 	if cur.onDestroy then
 		TM:newTask(cur.onDestroy,cur,cur.type)

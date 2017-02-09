@@ -3,7 +3,7 @@ V0.2 Beta
 
 A lua danmaku project and music rhythm game
 
-Author:
+## Author
 
 Shimatsukaze @ bilibili
 
@@ -19,13 +19,9 @@ Please contact me if:
 
 2) you want to help improve this game
 
-====================================================
-
 ## Contributors
 
 nil
-
-====================================================
 
 ## Thanks
 
@@ -37,8 +33,6 @@ https://github.com/cjcliffe/beatdetektor
 
 HC:
 http://hc.readthedocs.org/
-
-====================================================
 
 ## Update Log
 

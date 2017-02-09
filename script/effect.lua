@@ -24,6 +24,7 @@ function normalDestroy(self)
 		self.dist=self.dist+escapeV
 		coroutine.yield(1)
 	end
+	self.removed=true
 	table.delete(object,self)
 	return
 end
