@@ -125,7 +125,7 @@ function TM:update(typ)
 		local tmp=queue[i]
 		if tmp.next==0 or
 		(game.audio.music and game.audio.music:isPlaying() and tmp.next<0 and -tmp.next<=game.audio.music:tell()) then
-			if tmp.task==nil then
+			if tmp.task==nil or (tmp.obj and tmp.obj.removed) then
 				table.remove(queue,i)
 			else
 				local back, next=coroutine.resume(tmp.task,tmp.obj)

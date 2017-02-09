@@ -249,6 +249,7 @@ function beginGame(gData,pos)
 				end)
 				return false
 			end
+			danmaku[i].data.difficulty=mList.difficulty
 			TM:newTask(pattern[danmaku[i].name].run,danmaku[i].data,"level")
 		else
 			if not sbeat[danmaku[i].name] then

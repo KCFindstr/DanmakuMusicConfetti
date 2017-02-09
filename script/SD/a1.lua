@@ -48,7 +48,7 @@ return {
 	--我提供的可以调用的函数（如createBullet，setV等）可以在script/object.lua中查看。
 	run=function(data)
 		coroutine.yield(-data.f)
-		local delta=21-3*mList.difficulty
+		local delta=21-3*data.difficulty
 		local cur,add=data.f+data.bpm,data.bpm
 		while cur<data.t do
 			local beg=data.beg

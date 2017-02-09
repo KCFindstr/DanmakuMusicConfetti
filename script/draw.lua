@@ -167,10 +167,9 @@ end
 
 --菜单
 function drawMenu(canvas)
+	local pre=love.graphics.getBlendMode()
 	love.graphics.setCanvas(game.canvas)
 	love.graphics.clear()
-	love.graphics.setColor(0,0,0,255)
-	love.graphics.rectangle("fill",0,0,game.width,game.height)
 	love.graphics.setColor(255,255,255,255)
 	drawText("Select Music",50,50,30,"chn")
 	drawText("上/下:移动光标 Enter/Z:确认 ESC:返回上级界面\n拖入音乐文件以增加音乐。",26,50,630,"chn")
@@ -206,24 +205,24 @@ function drawMenu(canvas)
 		love.graphics.setColor(0,255,255,255)
 		love.graphics.rectangle("line",30,toRange(cursor.rectpos-10-cursor.showpos,mList.cnt*100),game.width-60,100)
 	end
+
 	love.graphics.setColor(255,255,255,255)
 	love.graphics.setCanvas(game.canvas)
+	love.graphics.setBlendMode("alpha","premultiplied")
 	love.graphics.setShader(game.shader.menu)
 	love.graphics.draw(game.bCanvas,0,60)
 	love.graphics.setShader()
-	love.graphics.setBlendMode("alpha")
+	love.graphics.setBlendMode(pre)
 
-	if canvas then
-		love.graphics.setCanvas(game.preCanvas)
-	else
-		love.graphics.setCanvas()
-	end
-	love.graphics.clear()
 	game.shader.glow:send("radius",10)
 	game.shader.glow:send("height",game.height)
 	game.shader.glow:send("width",game.width)
 	love.graphics.setShader(game.shader.glow)
-	love.graphics.draw(game.canvas,0,0)
+	if canvas then
+		renderTo(game.canvas,game.preCanvas)
+	else
+		renderTo(game.canvas)
+	end
 end
 
 --显示文字

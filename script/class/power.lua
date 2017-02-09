@@ -33,7 +33,6 @@ end
 
 local function tracePlayer(self)
 	while true do
-		if self.removed then return end
 		if self:collidesWith(player.domain) then
 			getBonus(self)
 		end
