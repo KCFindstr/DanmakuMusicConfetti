@@ -19,7 +19,6 @@ function TM:init()
 	for k,v in pairs(game.interval) do
 		game.interval[k]=1
 	end
-	self.state="game"
 end
 
 function TM:remove(obj,typ)
@@ -114,9 +113,6 @@ function TM:update(typ)
 		debug("Warning: no type read but required.")
 		return
 	end
-	if self.state=="pause" and typ~="system" then
-		return
-	end
 	local queue=self[typ]
 	if not queue then
 		return
@@ -124,7 +120,7 @@ function TM:update(typ)
 	for i=#(queue),1,-1 do
 		local tmp=queue[i]
 		if tmp.next==0 or
-		(game.audio.music and game.audio.music:isPlaying() and tmp.next<0 and -tmp.next<=game.audio.music:tell()) then
+		(tmp.next<0 and game.audio.pos and -tmp.next<=game.audio.pos) then
 			if tmp.task==nil or (tmp.obj and tmp.obj.removed) then
 				table.remove(queue,i)
 			else

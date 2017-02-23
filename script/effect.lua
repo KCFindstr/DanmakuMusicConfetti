@@ -17,10 +17,10 @@ function normalDestroy(self)
 	self.rate.x=0.5
 	self.rate.y=0.5
 	self.dist=0
-	local escapeV=2
+	local escapeV=1
 	table.insert(object,self)
-	for i=12,1,-1 do
-		self.color[4]=20*i
+	for i=30,1,-1 do
+		self.color[4]=8*i
 		self.dist=self.dist+escapeV
 		coroutine.yield(1)
 	end

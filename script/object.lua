@@ -21,7 +21,7 @@ end
 
 --摧毁目标
 function destroy(cur)
-	GP.remove(cur)
+	GP:remove(cur)
 	cur.active=false
 	table.delete(bullet,cur)
 	if cur.onDestroy then
@@ -32,7 +32,7 @@ end
 
 --创建子弹，参数为 类型 颜色 x坐标 y坐标 速度 角度 加速度 加速度角度
 --除type和color外都可以留空，该函数将返回创建的子弹
-function createBullet(type,color,x,y,v,rad,a,arad,...)
+function createBullet(type,color,x,y,v,rad,a,arad,drop,...)
 	if not class[type] then
 		return nil
 	end
@@ -61,6 +61,7 @@ function createBullet(type,color,x,y,v,rad,a,arad,...)
 	tmp.onDestroy=tmp.onDestroy or normalDestroy
 	tmp.d={x=tmpx,y=tmpy}
 	tmp.type=tmp.type or "bullet"
+	tmp.drop=tmp.drop or 100
 	table.insert(bullet,tmp)
 	if tmp.onCreate then
 		TM:newTask(tmp.onCreate,tmp,tmp.type)
@@ -95,9 +96,9 @@ function createBonus(type,number,x,y,vmin,vmax,spread,compress)
 		local amount=number
 		if type=="score" then amount=-amount end
 		if (type=="score" and number<1000) or (type=="power" and number<100) then
-			createBullet("power",csmall,x,y,nil,nil,nil,nil,rad,v,amount)
+			createBullet("power",csmall,x,y,nil,nil,nil,nil,nil,rad,v,amount)
 		else
-			createBullet("power",cbig,x,y,nil,nil,nil,nil,rad,v,amount)
+			createBullet("power",cbig,x,y,nil,nil,nil,nil,nil,rad,v,amount)
 		end
 		return
 	end
@@ -108,7 +109,7 @@ function createBonus(type,number,x,y,vmin,vmax,spread,compress)
 			local v=ran:float(vmin,vmax)
 			local amount=big
 			if type=="score" then amount=-amount end
-			createBullet("power",cbig,x,y,nil,nil,nil,nil,rad,v,amount)
+			createBullet("power",cbig,x,y,nil,nil,nil,nil,nil,rad,v,amount)
 		end
 		number=number%big
 	end
@@ -118,6 +119,6 @@ function createBonus(type,number,x,y,vmin,vmax,spread,compress)
 		local v=ran:float(vmin,vmax)
 		local amount=small
 		if type=="score" then amount=-amount end
-		createBullet("power",csmall,x,y,nil,nil,nil,nil,rad,v,amount)
+		createBullet("power",csmall,x,y,nil,nil,nil,nil,nil,rad,v,amount)
 	end
 end

@@ -41,47 +41,36 @@ function updateShape()
 	end
 	player.shape:moveTo(player.x,player.y)
 	player.domain:moveTo(player.x,player.y)
-	local collisions=GP.collisions(player.shape)
 	player.shape.touched=0
-	for other,v in pairs(collisions) do
-		if other.active and other.type=="bullet" then
-			player.shape.touched=player.shape.touched+1
-		end
-	end
-	collisions=GP.collisions(player.domain)
 	player.domain.touched=0
-	for other,v in pairs(collisions) do
-		if other.active and other.type=="bullet" then
-			player.domain.touched=player.domain.touched+1
+	if player.immortal==0 then
+		local collisions=GP:collisions(player.shape)
+		for other,v in pairs(collisions) do
+			if other.active and other.type=="bullet" then
+				player.shape.touched=player.shape.touched+1
+			end
 		end
-	end
-end
-
---画出判定
-function showShape()
-	for i=#(bullet),1,-1 do
-		local cur=bullet[i]
-		if cur.type=="bullet" then
-			cur:draw("fill")
+		collisions=GP:collisions(player.domain)
+		for other,v in pairs(collisions) do
+			if other.active and other.type=="bullet" then
+				player.domain.touched=player.domain.touched+1
+			end
 		end
-	end
-	if game.debug>=5 then
-		player.shape:draw("line")
-		player.domain:draw("line")
 	end
 end
 
 --进入暂停
 function updatePause()
-	if SD.state~="play" then
-		return
-	end
 	if firstPress("escape") or ((not game.isFocus) and mList.setting.autopause) then
 		if game.audio.music:isPlaying() then
 			game.audio.music:pause()
 		end
 		game.push(updateOption,drawOption)
-		option=game.pause
+		if game.replay then
+			option=getReplayOption()
+		else
+			option=getPauseOption()
+		end
 		option.pos=1
 		local cur=option[1]
 		option.y1=cur.y1
@@ -89,9 +78,33 @@ function updatePause()
 	end
 end
 
+--更新计时器
+function updateTimer()
+	game.frame=game.frame+1
+	if game.frame==300 then
+		game.audio.music:setVolume(mList.setting.bgm)
+		game.audio.music:play()
+	end
+	if game.replay then
+		game.audio.pos=game.replay.state.musicT
+	else
+		if game.audio.music:isStopped() and game.audio.music:tell()==0 then
+			if game.audio.pos<=0 then
+				game.audio.pos=game.frame/60-5
+			else
+				game.audio.pos=game.audio.duration+(game.frame-game.audio.endframe)/60
+			end
+		else
+			game.audio.endframe=game.frame
+			game.audio.pos=game.audio.music:tell()
+		end
+	end
+end
+
 --游戏中
 function updateGame(dt)
-	game.frame=game.frame+1
+	updateTimer()
+
 	TM:update("main")
 
 	player.graze:setPosition(player.x,player.y)
@@ -99,6 +112,16 @@ function updateGame(dt)
 	player.death:update(dt)
 	updateShape()
 	updatePause()
+
+	recordGame(dt)
+
+	if math.abs(game.audio.pos-game.audio.duration-5)<=C.eps then
+		if game.replay then 
+			endReplay()
+		else
+			endGame()
+		end
+	end
 
 	updateKey(dt)
 	collectgarbage()
@@ -155,18 +178,24 @@ function updateMenu(dt)
 				end
 			end
 		elseif firstPress("fire") or firstPress("enter") then
-			musicOption(cursor.pos)
+			if game.replay then
+				option=replayOption(cursor.pos)
+				game.push(updateOption,drawOption)
+			else
+				musicOption(cursor.pos)
+			end
 		end
 	end
 	cursor.showpos=toRange(cursor.showpos,whole)
 	cursor.rectpos=toRange(cursor.rectpos,whole)
 
-	if firstPress("escape") then
+	if firstPress("escape") and love.update==updateMenu then
 		addGradual(fnil,updateOption,love.draw,drawOption,30,30,true,function(...)
 			love.filedropped=nil
+			game.replay=nil
 			option=game.main
+			SD.first=0
 		end)
-		SD.first=0
 	end
 	updateKey(dt)
 	collectgarbage()
@@ -179,6 +208,7 @@ function updateOption(dt)
 	end
 	if option.confirm then
 		local cur=option.confirm
+		local width=option.width or 230
 		if mList.setting.cycle then
 			if firstPress("right") or firstPress("left") then
 				cur.pos=3-cur.pos
@@ -193,7 +223,7 @@ function updateOption(dt)
 		end
 		local dest
 		if cur.pos==1 then
-			dest=game.width/2-230
+			dest=game.width/2-width
 		else
 			dest=game.width/2
 		end
@@ -306,4 +336,132 @@ function updateOption(dt)
 
 	updateKey(dt)
 	collectgarbage()
+end
+
+function updateInputText(dt)
+	local keys=game.keyboard
+	if keys.res==nil then return end
+	keys.frame=keys.frame+1
+	local dx,dy,size=0,0,keys.size
+	if firstPress("up") or repeatPress("up") then dy=dy-1 end
+	if firstPress("down") or repeatPress("down") then dy=dy+1 end
+	if firstPress("left") or repeatPress("left") then dx=dx-1 end
+	if firstPress("right") or repeatPress("right") then dx=dx+1 end
+	keys.pos.x=keys.pos.x+dx
+	keys.pos.y=keys.pos.y+dy
+	if mList.setting.cycle then
+		if keys.pos.x==0 then keys.pos.x=#(keys[1]) end
+		if keys.pos.x>#(keys[1]) then keys.pos.x=1 end
+		if keys.pos.y==0 then keys.pos.y=#(keys) end
+		if keys.pos.y>#(keys) then keys.pos.y=1 end
+	else
+		keys.pos.x=math.max(math.min(keys.pos.x,#(keys[1])),1)
+		keys.pos.y=math.max(math.min(keys.pos.y,#(keys)),1)
+	end
+
+	local px,py=game.width/2-size*5,200
+	local x=px+(keys.pos.x-1)*size
+	local y=py+(keys.pos.y-1)*size
+
+	if keys.x~=x or keys.y~=y then
+		local tmp=math.abs(keys.x-x)
+		local walkx=math.min(tmp,math.sqrt(tmp)*3)
+		if keys.x<x then
+			keys.x=keys.x+walkx
+		else
+			keys.x=keys.x-walkx
+		end
+		local tmp=math.abs(keys.y-y)
+		local walky=math.min(tmp,math.sqrt(tmp)*3)
+		if keys.y<y then
+			keys.y=keys.y+walky
+		else
+			keys.y=keys.y-walky
+		end
+	elseif firstPress("enter") or firstPress("fire") or repeatPress("enter") or repeatPress("fire") then
+		x,y=keys.pos.x,keys.pos.y
+		if keys[y][x]=="<" then
+			if string.len(keys.res)>0 then
+				keys.res=string.sub(keys.res,1,-2)
+			end
+		elseif keys[y][x]=="×" then
+			keys.onEnd(nil)
+			game.pop()
+		elseif keys[y][x]=="√" then
+			keys.onEnd(keys.res)
+			game.pop()
+		elseif string.len(keys.res)<24 then
+			keys.res=keys.res..keys[y][x]
+		end
+	elseif firstPress("escape") then
+		keys.onEnd(nil)
+		game.pop()
+	end
+
+	updateKey(dt)
+	collectgarbage()
+end
+
+--渐变更新
+function updateGradual(dt)
+	local data=game.graphics.data
+	local preU=data.preU
+	local preT=data.preT
+	local nextU=data.nextU
+	local nextD=data.nextD
+	local nextIgnore=data.nextIgnore
+	local nextT=data.nextT
+	data.frame=data.frame+1
+	if data.frame<=preT then
+		preU(dt)
+	elseif not nextIgnore then
+		nextU(dt)
+	end
+
+	if data.frame==preT then
+		if data.onEnd then
+			data.onEnd(data)
+		end
+	end
+	if data.frame==preT+nextT then
+		love.draw=nextD
+		love.update=nextU
+		game.graphics.data=nil
+	end
+end
+
+--结束
+function endGame()
+	addGradual(love.update,updateOption,love.draw,drawOption,60,30,true,function(...)
+		game.state={}
+		SD.first=0
+		checkAchievement("firstGame"..game.audio.record.difficulty)
+		addSongCounter(game.audio.id)
+		if player.count.death==0 then
+			checkAchievement("firstPerfect")
+		end
+		option=endGameOption(game.audio.id)
+		fileSave()
+	end)
+end
+
+--更新报告界面
+function updateReport(self,dt)
+	if self.bar<1 then
+		local delta=math.max(0.001,0.05*(1-self.bar))
+		self.bar=math.min(self.bar+delta,1)
+		playSound(game.sound.scorecounter)
+	elseif self.bar<10 then
+		if self.death==0 then
+			self.bar=self.bar+0.1
+		else
+			self.bar=100
+		end
+	elseif self.bar<100 then
+		self.bar=5/6
+		self.score=math.floor(self.score*1.2)
+		self.death=false
+	else
+		self.bar=math.min(self.bar+5,355)
+	end
 end

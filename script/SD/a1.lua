@@ -17,24 +17,18 @@ return {
 		for i=1,#(note) do
 			local cur=note[i]
 			if cur.t then
-				local x=ran:int(100,game.graphics.width-100)
-				local y=ran:int(100,game.graphics.height-100)
+--				local x=ran:int(100,game.graphics.width-100)
+--				local y=ran:int(100,game.graphics.height-100)
 	--game.graphics.width/height表示游戏界面的宽与高（不是窗口大小）
 				local data={
 					f=cur.f,
 					t=cur.t,
 					energy=cur.energy,
-					x=x,
-					y=y,
+--					x=x,
+--					y=y,
 					bpm=note.bpm,
 					beg=ran:int(1,15)
 				}
-				table.insert(warning,{
-					x=x,
-					y=y,
-					t=cur.f,
-					color=nil
-				})
 				return {i},data
 			end
 		end
@@ -47,13 +41,20 @@ return {
 	--如果你的函数结束或返回值不正确，任务管理器会自动将其抹去
 	--我提供的可以调用的函数（如createBullet，setV等）可以在script/object.lua中查看。
 	run=function(data)
+		local x=ran:int(100,game.graphics.width-100)
+		local y=ran:int(100,game.graphics.height-100)
+		table.insert(warning,{
+			x=x,
+			y=y,
+			t=data.f
+		})
 		coroutine.yield(-data.f)
 		local delta=21-3*data.difficulty
 		local cur,add=data.f+data.bpm,data.bpm
 		while cur<data.t do
 			local beg=data.beg
 			for i=1,360/delta do
-				local tmp=createBullet("crystal","violet",data.x,data.y)
+				local tmp=createBullet("crystal","violet",x,y)
 				setV(tmp,3,beg)
 				beg=beg+delta
 			end

@@ -37,33 +37,51 @@ achievement={
 	},
 	firstGame1={
 		index=7,
-		title="FIRST LIVE Ⅰ",
-		text="完整完成第一次EASY难度游戏！",
+		title="FIRST LIVE",
+		text="完成第一次EASY难度游戏！",
 		hidden=false
 	},
 	firstGame2={
 		index=8,
 		title="FIRST LIVE Ⅱ",
-		text="完整完成第一次NORMAL难度游戏！",
+		text="完成第一次NORMAL难度游戏！",
 		hidden=false
 	},
 	firstGame3={
 		index=9,
 		title="FIRST LIVE SUNSHINE",
-		text="完整完成第一次HARD难度游戏！",
+		text="完成第一次HARD难度游戏！",
+		hidden=false
+	},
+	firstGame4={
+		index=10,
+		title="FIRST LIVE SUNSHINE Ⅱ",
+		text="完成第一次LUNATIC难度游戏！",
 		hidden=false
 	},
 	firstDeath={
-		index=10,
+		index=11,
 		title="死亡轮回",
 		text="第一次被弹。",
 		hidden=false
 	},
 	firstPerfect={
-		index=11,
+		index=12,
 		title="GET SPELLCARD BONUS",
 		text="第一次无伤完成游戏。",
 		hidden=false
+	},
+	firstReplay={
+		index=13,
+		title="Blu-ray Disk",
+		text="第一次完整回放录像。",
+		hidden=false
+	},
+	discoverDevMode={
+		index=14,
+		title="Hello World",
+		text="发现开发者入口\n——等等，你是怎么找到的？",
+		hidden=true
 	}
 }
 achievementCount={}
@@ -100,6 +118,7 @@ function achievementList(page)
 	local next=page+1
 	if next>pcnt then next=1 end
 	if prev<1 then prev=pcnt end
+	
 	local back={
 		{
 			y1=180,
@@ -120,24 +139,23 @@ function achievementList(page)
 			desc="使用左右方向键进行翻页。",
 			change=function(self)
 				if self.pos==1 then
-					option=achievementList(self.prev)
+					option=achievementList(prev)
 					option.y1=self.y1
 					option.y2=self.y2
 					option.pos=2
 				elseif self.pos==3 then
-					option=achievementList(self.next)
+					option=achievementList(next)
 					option.y1=self.y1
 					option.y2=self.y2
 					option.pos=2
 				end
-			end,
-			prev=prev,
-			next=next
+			end
 		},
 		y1=180,
 		y2=225,
 		title="成就",
 		pos=1,
+		width=300,
 		hotkey={
 			escape=function(self)
 				if self.pos~=1 then
@@ -182,7 +200,8 @@ end
 
 --计数
 function addSongCounter(id)
-	mList[id].cnt=mList[id].cnt+1
+	local tmp=mList.difficulty
+	mList[id].cnt[tmp]=mList[id].cnt[tmp]+1
 end
 
 function addNormalCounter(name)
@@ -200,7 +219,11 @@ function musicOption(id)
 	for i=2,#(cur.highscore) do
 		info=info.."/"..cur.highscore[i]
 	end
-	info=info.."（共进行了"..cur.cnt.."次）"..[[
+	info=info.."\n共完成了"..cur.cnt[1]
+	for i=2,#(cur.cnt) do
+		info=info.."/"..cur.cnt[i]
+	end
+	info=info.."次"..[[
 
 时长：]]..string.format("%2d:%02d",math.floor(cur.duration/60),math.floor(cur.duration)%60)..[[
 
@@ -221,7 +244,7 @@ function musicOption(id)
 			y2=295,
 			text="开始游戏",
 			type="list",
-			list={"EASY","NORMAL","HARD"},
+			list=game.difficulty,
 			pos=mList.difficulty,
 			lang="eng",
 			desc="用左右选择难度，ENTER开始。",
@@ -286,10 +309,8 @@ function musicOption(id)
 			end
 		}
 	}
-	game.push()
+	game.push(updateOption,drawOption)
 	option=back
-	love.update=updateOption
-	love.draw=drawOption
 	return
 end
 
@@ -302,7 +323,7 @@ function getWaitingDialogue()
 		"重装小兔瞌睡中",
 		"正在驱散调皮的小精灵",
 		"正在召唤从者",
-		"正在与丘比签订契约",
+		"正在与QB签订契约",
 		"学级裁判准备中"
 	}
 	return tmp[ran:int(1,#(tmp))]
@@ -311,8 +332,11 @@ end
 --获取游戏设置
 function getSetting(playing,previous)
 	local isCycle,isAutoPause
-	local dList={"EASY","NORMAL","HARD"}
+	local dList=game.difficulty
 	local dPos=mList.difficulty
+	if game.audio.record and game.audio.record.difficulty then
+		dPos=game.audio.record.difficulty
+	end
 	if mList.setting.cycle then
 		isCycle=1
 	else
@@ -446,6 +470,172 @@ function getSetting(playing,previous)
 			end
 		},
 		previous=previous
+	}
+	return back
+end
+
+--音乐结束选项
+function endGameOption(id)
+	local next=id+1
+	if next>mList.cnt then
+		next=1
+	end
+	local diff=game.audio.record.difficulty
+	local back={
+		{
+			y1=350,
+			y2=395,
+			text="返回菜单",
+			type="button",
+			desc="返回音乐选择界面。",
+			click=function(self)
+				while game.pop() do end
+				addGradual(fnil,updateMenu,love.draw,drawMenu,30,30,true,function(...)
+					love.filedropped=fileDrop
+				end)
+			end
+		},
+		{
+			y1=400,
+			y2=445,
+			text="游戏难度",
+			type="list",
+			list=game.difficulty,
+			pos=mList.difficulty,
+			lang="eng",
+			desc="用左右选择难度。",
+			change=function(self)
+				mList.difficulty=self.pos
+			end
+		},
+		{
+			y1=450,
+			y2=495,
+			text="重新开始",
+			type="button",
+			desc="重新开始：\n"..getMusicName(id),
+			click=function(self)
+				beginGame(mList[id],id)
+			end
+		},
+		{
+			y1=500,
+			y2=545,
+			text="下一首",
+			type="button",
+			desc="下一首：\n"..getMusicName(next),
+			click=function(self)
+				beginGame(mList[next],next)
+			end
+		},
+		{
+			y1=550,
+			y2=595,
+			text="保存录像",
+			type="button",
+			desc="保存这次游戏的录像。",
+			click=function(self)
+				local keys=game.keyboard
+				keys.onEnd=saveReplay
+				keys.title="保存录像"
+				keys.text="为要保存的录像命名：\n"..getMusicName(id).."\n在"..game.audio.record.time.."的游戏记录。"
+				game.push(updateInputText,drawInputText)
+			end
+		},
+		y1=350,
+		y2=395,
+		title="演唱会成功",
+		pos=1,
+		draw=drawReport,
+		update=updateReport,
+		bar=0,
+		highscore=mList[id].highscore[diff],
+		score=player.count.score,
+		death=player.count.death,
+		hotkey={
+			escape=function(self)
+				if self.pos~=1 then
+					self.pos=1
+				else
+					self[1].click(self[1])
+				end
+			end
+		}
+	}
+	if player.count.death==0 then
+		back.title="完全胜利！S"
+		player.count.score=math.floor(player.count.score*1.2)
+	end
+	
+	if player.count.score>mList[id].highscore[diff] then
+		mList[id].highscore[diff]=player.count.score
+	end
+	return back
+end
+
+--暂停菜单
+function getPauseOption()
+	local back={
+		{
+			y1=200,
+			y2=245,
+			text="返回游戏",
+			type="button",
+			desc="从暂停状态返回游戏。",
+			click=function(self)
+				game.pop()
+				if game.audio.music:isPaused() then
+					game.audio.music:setVolume(mList.setting.bgm)
+					game.audio.music:resume()
+				end
+			end
+		},
+		{
+			y1=260,
+			y2=305,
+			text="重新开始",
+			type="button",
+			desc="重新开始这首音乐。（不会改变谱面）",
+			confirm={
+				desc="重新开始这首音乐？你之前的游戏进度将丢失。",
+				pos=2
+			},
+			click=function(self)
+				local tmp=game.audio.id
+				beginGame(mList[game.audio.id],game.audio.previd)
+			end
+		},
+		{
+			y1=320,
+			y2=365,
+			text="游戏设置",
+			type="button",
+			desc="修改游戏有关设置。",
+			click=function(self)
+				option=getSetting(true,option)
+			end
+		},
+		{
+			y1=380,
+			y2=425,
+			text="返回菜单",
+			type="button",
+			desc="停止游戏并返回菜单界面。",
+			confirm={
+				desc="返回菜单界面？你之前的游戏进度将丢失。",
+				pos=2
+			},
+			click=function(self)
+				addGradual(fnil,updateMenu,love.draw,drawMenu,30,30,true,function(...)
+					game.state={}
+					love.filedropped=fileDrop
+				end)
+			end
+		},
+		y1=200,
+		y2=245,
+		title="游戏暂停",
+		pos=1
 	}
 	return back
 end

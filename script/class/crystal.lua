@@ -4,6 +4,6 @@
 --create函数可以为该类弹幕添加各种键值（不能冲突）
 return {
 	create=function()
-		return GP.polygon(-16,-1,-1,-14,16,-1,-1,10)
+		return GP:polygon(-16,-1,-1,-14,16,-1,-1,10)
 	end
 }

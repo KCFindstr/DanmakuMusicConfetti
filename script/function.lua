@@ -87,18 +87,15 @@ function strlen(str)
 	local len=#(str)
 	local i=1
 	local back=0
+	local arr={0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc}
 	while (i<=len)
 	do
 		local curByte=string.byte(str, i)
-		local byteCount=1
-		if curByte>0 and curByte<=127 then
-			byteCount=1
-		elseif curByte>=192 and curByte<223 then
-			byteCount=2
-		elseif curByte>=224 and curByte<239 then
-			byteCount=3
-		elseif curByte>=240 and curByte<=247 then
-			byteCount=4
+		local byteCount=0
+		for i=1,#(arr) do
+			if curByte>arr[i] then
+				byteCount=byteCount+1
+			end
 		end
 		i=i+byteCount
 		if (byteCount==1) then
@@ -228,6 +225,10 @@ function ran:setSeed(seed)
 	self.seed=seed%ran.max
 end
 
+function ran:getSeed()
+	return self.seed
+end
+
 function ran:int(l,r)
 	return math.floor(l+self:_01()*(r-l+1))
 end
@@ -249,22 +250,6 @@ function ran:shuffle(table)
 	end
 end
 
---获取音乐位置
-function getMusicPosition()
-	local curt
-	if game.audio.music:isStopped() and game.audio.music:tell()==0 then
-		if game.audio.pos==0 then
-			curt=game.frame/60-5
-		else
-			curt=game.audio.duration+(game.frame-game.audio.pos)/60
-		end
-	else
-		curt=game.audio.music:tell()
-		game.audio.pos=game.frame
-	end
-	return curt
-end
-
 --获取音乐名字
 function getMusicName(id,limit)
 	if id<1 or id>mList.cnt then
@@ -280,16 +265,18 @@ end
 
 --渐变效果
 function addGradual(preU,nextU,preD,nextD,preT,nextT,nextIgnore,onEnd)
-	local tmp={}
+	local tmp={
+		preU=preU,
+		nextU=nextU,
+		preD=preD,
+		nextD=nextD,
+		preT=preT,
+		nextT=nextT,
+		nextIgnore=nextIgnore,
+		onEnd=onEnd,
+		frame=0
+	}
 	game.graphics.data=tmp
-	tmp.preU=preU
-	tmp.nextU=nextU
-	tmp.preD=preD
-	tmp.nextD=nextD
-	tmp.preT=preT
-	tmp.nextT=nextT
-	tmp.nextIgnore=nextIgnore
-	tmp.onEnd=onEnd
 	if preT==0 then
 		if not nextIgnore then
 			love.update=preU
@@ -298,6 +285,7 @@ function addGradual(preU,nextU,preD,nextD,preT,nextT,nextIgnore,onEnd)
 			onEnd(tmp)
 		end
 	end
+	love.update=updateGradual
 	love.draw=drawGradual
 end
 
@@ -321,4 +309,18 @@ function addMessage(title,content,color,p1,p2,p3,width,height)
 		t=-1
 	}
 	table.insert(message,tmp)
+end
+
+--计算fps
+function getFPS(totframe,duration)
+	totframe=totframe-60*11+1
+	return math.min(60,totframe/duration)
+end
+
+--时间格式
+function getTimeFormat(sec)
+	sec=math.floor(sec)
+	local min=math.floor(sec/60)
+	sec=sec%60
+	return string.format("%02d:%02d",min,sec)
 end

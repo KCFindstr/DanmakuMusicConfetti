@@ -92,10 +92,11 @@ end
 function applyConfirm()
 	if not option then return false end
 	local target=option[option.pos]
+	local width=option.width or 230
 	option.confirm=copyFrom(target.confirm)
 	if not option.confirm.x1 then
 		if option.confirm.pos==1 then
-			option.confirm.x1=game.width/2-230
+			option.confirm.x1=game.width/2-width
 		else
 			option.confirm.x1=game.width/2
 		end

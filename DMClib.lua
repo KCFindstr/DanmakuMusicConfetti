@@ -25,6 +25,9 @@ require("script.file")
 --更新
 require("script.update")
 
+--录像
+require("script.replay")
+
 --各种有用的东西
 require("script.effect")
 
@@ -41,9 +44,5 @@ require("script.SD.pattern")
 require("script.setting")
 
 --HC碰撞检测
-GP=require("script.HC")
-GP.resetHash(50)
-GE=GP.new(20)
-
---加特技
-shine=require("script.shine")
+HCC=require("script.HC")
+HCC.resetHash(50)

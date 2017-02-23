@@ -260,22 +260,7 @@ function getNotes(self)
 
 	table.sort(warning,sortByTime)
 	local file=save.dir.."/warning.dat"
-	local content=""
-	for i=1,#(warning) do
-		local cur=warning[i]
-		if not cur.color then
-			cur.color={255,0,0}
-		end
-		content=content..cur.t..","..cur.x..","..cur.y
-		for j=1,3 do
-			content=content..","..cur.color[j]
-		end
-		if not cur.type then
-			cur.type="default"
-		end
-		content=content..","..cur.type.."\n"
-	end
-	love.filesystem.write(file,content)
+	love.filesystem.write(file,getContent("",warning))
 	love.filesystem.write(save.file,getContent("",mainData))
 end
 
@@ -283,7 +268,7 @@ end
 function musicAnalyze(dt)
 	local beginT=love.timer.getTime()
 	if SD.routine then
-		while love.timer.getTime()-beginT<0.02 do
+		while love.timer.getTime()-beginT<C.wait do
 			local back, info=coroutine.resume(SD.routine,SD)
 			if back==false or (not info) then
 				if back==false then
@@ -301,7 +286,7 @@ function musicAnalyze(dt)
 			end
 		end
 	else
-		while love.timer.getTime()-beginT<0.02 do
+		while love.timer.getTime()-beginT<C.wait do
 			local process=SD:analyze()
 			if process==-1 then
 				SD:finish()
@@ -313,17 +298,19 @@ function musicAnalyze(dt)
 						mList[mList.cnt]={
 							id=mList.id,
 							file=SD.file:getFilename(),
-							highscore={0,0,0},
+							highscore={0,0,0,0},
 							duration=SD.music:getDuration(),
 							bpm=SD.bpm,
 							ext=SD.ext,
-							cnt=0
+							cnt={0,0,0,0},
+							replay={id=0}
 						}
 					else
 						mList[id].duration=SD.music:getDuration()
-						mList[id].highscore={0,0,0}
+						mList[id].highscore={0,0,0,0}
 						mList[id].bpm=SD.bpm
-						mList[id].cnt=0
+						mList[id].cnt={0,0,0,0}
+						mList[id].replay={id=0}
 					end
 					SD.routine=coroutine.create(getNotes)
 					return

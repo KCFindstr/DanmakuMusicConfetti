@@ -13,15 +13,17 @@ function love.load()
 	game={
 		width=love.graphics.getWidth(),
 		height=love.graphics.getHeight(),
-		debug=4,
-		version="V0.2 Beta",
+		debug=0,
+		version="V0.3 Beta",
 		name="Danmaku Music Confetti",
 		canvas=love.graphics.newCanvas(),
 		tmpCanvas=love.graphics.newCanvas(),
 		bCanvas=love.graphics.newCanvas(),
 		pCanvas=love.graphics.newCanvas(),
 		preCanvas=love.graphics.newCanvas(),
+		keyCanvas=love.graphics.newCanvas(),
 		isFocus=true,
+		replay=nil,
 		interval={
 			["player"]=1,
 			["bullet"]=1,
@@ -38,7 +40,23 @@ function love.load()
 		frame=0,
 		audio={},
 		state={},
-		sound={}
+		sound={},
+		keyboard={
+			{"0","1","2","3","4","5","6","7","8","9"},
+			{"A","B","C","D","E","F","G","H","I","J"},
+			{"K","L","M","N","O","P","Q","R","S","T"},
+			{"U","V","W","X","Y","Z","+","-","*","/"},
+			{"[","]","#","$",".","~"," ","<","×","√"},
+			title="无",
+			x=290,
+			y=200,
+			pos={x=1,y=1},
+			res=nil,
+			frame=0,
+			size=50,
+			text="为要保存的录像命名。"
+		},
+		difficulty={"EASY","NORMAL","HARD","LUNATIC"}
 	}
 
 	--读取存档
@@ -82,11 +100,7 @@ function love.load()
 		dx=50,
 		dy=50,
 		color={50,0,50,0},
-		background=love.graphics.newImage("data/bg1.jpg"),
-		font={
-			eng=love.graphics.newFont("asset/engfont.ttf",100),
-			chn=love.graphics.newFont("asset/chnfont.ttf",100)
-		},
+		font={},
 		colorset={
 			"blue",
 			"red",
@@ -100,74 +114,11 @@ function love.load()
 
 	game.title=game.name.." ~ "..game.version.." [By Shimatsukaze]"
 
-	for i=1,10 do
+	for i=1,20 do
 		game.save[i]=love.graphics.newCanvas()
 	end
 
 	--界面与列表
-	game.pause={
-		{
-			y1=200,
-			y2=245,
-			text="返回游戏",
-			type="button",
-			desc="从暂停状态返回游戏。",
-			click=function(self)
-				game.pop()
-				if game.audio.music:isPaused() then
-					game.audio.music:setVolume(mList.setting.bgm)
-					game.audio.music:resume()
-				end
-			end
-		},
-		{
-			y1=260,
-			y2=305,
-			text="重新开始",
-			type="button",
-			desc="重新开始这首音乐。（不会改变谱面）",
-			confirm={
-				desc="重新开始这首音乐？你之前的游戏进度将丢失。",
-				pos=2
-			},
-			click=function(self)
-				local tmp=game.audio.id
-				game.audio.id=game.audio.previd
-				beginGame(game.audio,tmp)
-			end
-		},
-		{
-			y1=320,
-			y2=365,
-			text="游戏设置",
-			type="button",
-			desc="修改游戏有关设置。",
-			click=function(self)
-				option=getSetting(true,option)
-			end
-		},
-		{
-			y1=380,
-			y2=425,
-			text="返回菜单",
-			type="button",
-			desc="停止游戏并返回菜单界面。",
-			confirm={
-				desc="返回菜单界面？你之前的游戏进度将丢失。",
-				pos=2
-			},
-			click=function(self)
-				addGradual(fnil,updateMenu,love.draw,drawMenu,30,30,true,function(...)
-					game.state={}
-					love.filedropped=fileDrop
-				end)
-			end
-		},
-		y1=200,
-		y2=245,
-		title="游戏暂停",
-		pos=1
-	}
 	game.main={
 		{
 			y1=200,
@@ -186,9 +137,10 @@ function love.load()
 			y2=305,
 			text="录像回放",
 			type="button",
-			desc="回放之前的游戏记录。\n（开发中）",
+			desc="回放之前的游戏记录。",
 			click=function(self)
-				
+				game.replay=true
+				addGradual(fnil,updateMenu,love.draw,drawMenu,30,30,true)
 			end
 		},
 		{
@@ -298,74 +250,16 @@ function love.load()
 				else
 					self[1].click(self[1])
 				end
-			end
-		}
-	}
-	game.report={
-		{
-			y1=450,
-			y2=495,
-			text="接下来…",
-			type="list",
-			desc="返回音乐选择界面。",
-			list={"返回菜单","重新开始","下一首"},
-			pos=1,
-			click=function(self)
-				if self.pos==1 then
-					while game.pop() do end
-					addGradual(fnil,updateMenu,love.draw,drawMenu,30,30,true,function(...)
-						love.filedropped=fileDrop
-					end)
-				else
-					local id=self.id
-					if self.pos==3 then
-						id=id+1
-						if id>mList.cnt then
-							id=1
-						end
-					end
-					beginGame(mList[id],id)
-				end
 			end,
-			change=function(self)
-				if self.pos==1 then
-					self.desc="返回音乐选择界面。"
-				elseif self.pos==2 then
-					self.desc="重新开始：\n"..getMusicName(self.id,40)
-				elseif self.pos==3 then
-					local next=self.id+1
-					if next>mList.cnt then
-						next=1
-					end
-					self.desc="下一首音乐是：\n"..getMusicName(next,40)
-				end
-			end
-		},
-		{
-			y1=500,
-			y2=545,
-			text="游戏难度",
-			type="list",
-			list={"EASY","NORMAL","HARD"},
-			pos=mList.difficulty,
-			lang="eng",
-			desc="用左右选择难度。",
-			change=function(self)
-				mList.difficulty=self.pos
-			end
-		},
-		y1=450,
-		y2=495,
-		title="演唱会成功",
-		pos=1,
-		hotkey={
-			escape=function(self)
-				if self.pos~=1 then
-					self.pos=1
-				elseif self[1].pos~=1 then
-					self[1].pos=1
-				else
-					self[1].click(self[1])
+			dodge=function(self)
+				local tmp=self[self.pos]
+				if tmp.text=="开发者" then
+					local keys=game.keyboard
+					keys.onEnd=checkDevMode
+					keys.title="？？？"
+					keys.text="龙骧"
+					game.push(updateInputText,drawInputText)
+					checkAchievement("discoverDevMode")
 				end
 			end
 		}
@@ -387,7 +281,8 @@ function love.load()
 		S2_2=math.sqrt(2)/2,
 		PI=math.pi,
 		inf=2147483647,
-		eps=1e-3
+		eps=1e-3,
+		wait=0.05
 	}
 
 	--按键
@@ -428,11 +323,13 @@ function love.load()
 		keyRepeat[k]=v
 	end
 
+	--录像
+	keyRec={"up","down","left","right","slow","fire","dodge"}
+
 	--单位
 	enemy={}
 	bullet={}
 	object={}
-	unit={}
 
 	--随机数
 	math.randomseed(os.time())
@@ -448,7 +345,7 @@ function love.load()
 	player:load("reimu")
 
 	checkAchievement("firstOpen")
-	addGradual(fnil,updateOption,fnil,drawOption,0,30,true)
 	option=game.main
+	addGradual(fnil,updateOption,fnil,drawOption,0,30,true)
 	love.window.setTitle(game.title)
 end

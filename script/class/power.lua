@@ -7,12 +7,16 @@ function getToPlayer(self)
 		if player.shape:contains(self.x,self.y) then
 			destroy(self)
 			local text
+			if (self.sp and player.sp==5000) or game.audio.record.difficulty>3 then
+				self.score=self.sp
+				self.sp=nil
+			end
 			if self.sp then
 				text="SP+"..self.sp/1000
 				player:gainSP(self.sp)
 			else
 				text="+"..self.score
-				player:gainScore(self.score)
+				player:addCounter("score",self.score)
 			end
 			local tmp={
 				x=self.x-30,
@@ -47,9 +51,9 @@ return {
 			score=-sp
 		end
 		if (sp<100 and not score) or (score and score<1000) then
-			back=GP.circle(0,0,30)
+			back=GP:circle(0,0,30)
 		else
-			back=GP.circle(0,0,50)
+			back=GP:circle(0,0,50)
 		end
 		back.onCreate=function(self)
 			local cur=rad

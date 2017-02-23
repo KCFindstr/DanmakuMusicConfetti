@@ -1,15 +1,25 @@
 player={
 	x=0,
 	y=0,
-	r=5, --判定大小
+	r=3, --判定大小
 	rate={x=1,y=1},
-	R=30, --擦弹判定
+	R=20, --擦弹判定
 	v={x=0,y=0}, --速度
 	a={x=0,y=0},
 	state="appear",
 	t={last=0,tot=0,lmove=0},
-	count={}, --计数
-	speed={fast=5,slow=2,sp=450,gain=3},
+	count={
+		score=0,
+		graze=0,
+		death=0,
+		bomb=0
+	}, --计数
+	speed={
+		fast=5,
+		slow=2,
+		sp=480,
+		gain=5
+	},
 	img={group={}},
 	draw=drawPlayer,
 	sign=nil,
@@ -35,15 +45,22 @@ function player:initGame()
 	player.count={
 		score=0,
 		graze=0,
-		death=0
+		death=0,
+		bomb=0
 	}
+	player.domain=GP:circle(self.x,self.y,self.R)
+	player.shape=GP:circle(self.x,self.y,self.r)
+	player.domain.touched=0
+	player.shape.touched=0
+	local diff=game.audio.record.difficulty
+	if diff>3 then diff=1 end
+	player.penalty=math.floor(math.sqrt(game.audio.duration)*100*diff)
 end
 
 function player:new()
 	player.x=game.graphics.width/2
 	player.y=game.graphics.height+100
---	player.sp=0
-	player.sp=5000
+	player.sp=0
 	player.v={x=0,y=0}
 	player.t={last=0,tot=0,lmove=0}
 	player.a={x=0,y=0}
@@ -57,11 +74,6 @@ end
 
 function player:load(name)
 	player.img.move=love.graphics.newImage("data/player/"..name.."/"..name..".png")
-	player.domain=GP.circle(self.x,self.y,self.R)
-	player.shape=GP.circle(self.x,self.y,self.r)
-	player.domain.touched=0
-	player.shape.touched=0
-	player.sp=0
 	for i=0,2 do
 		player.img.group[i]={}
 		for j=0,7 do
@@ -77,20 +89,12 @@ function playerDying(self)
 	game.shader.inverse:send("x",self.x+0.5+game.graphics.dx)
 	game.shader.inverse:send("y",self.y+0.5+game.graphics.dy)
 	game.shader.inverse:send("radius",0)
-	local r2,d,val=0,40,math.sqrt(game.graphics.height*game.graphics.height+game.graphics.width*game.graphics.width)+200
+	local r2,d,val=0,50,math.sqrt(game.graphics.height^2+game.graphics.width^2)+200
 	for i=d,val,d do
 		coroutine.yield(1)
 		game.shader.inverse:send("radius",i)
 		if self.state~="dying" then
 			if r2==0 then
-				--决死成功
-				for j=#(bullet),1,-1 do
-					local cur=bullet[j]
-					if cur.type=="bullet" and dist(self,cur)<=i then
-						createBonus("score",3000,cur.x,cur.y,3,5,0,true)
-						destroy(cur)
-					end
-				end
 				table.delete(game.active,game.shader.inverse2)
 				table.insert(game.active,game.shader.inverse2)
 				game.shader.inverse2:send("x",self.x+0.5+game.graphics.dx)
@@ -105,6 +109,9 @@ function playerDying(self)
 		createBonus("power",player.sp,player.x,player.y)
 		player.death:setPosition(player.x,player.y)
 		player.death:emit(64)
+		player:addCounter("death")
+		player:addCounter("score",-player.penalty)
+		checkAchievement("firstDeath")
 		player:new()
 	else
 		while r2<val do
@@ -132,10 +139,21 @@ function exitTime(self)
 end
 
 function timeAttack(self)
+	--决死成功
+	player:addCounter("bomb")
 	local t=self.speed.sp*self.sp/5000
+	local dis=game.graphics.height*self.sp/5000
+	for j=#(bullet),1,-1 do
+		local cur=bullet[j]
+		if cur.type=="bullet" and dist(self,cur)<=dis then
+			createBonus("score",cur.drop,cur.x,cur.y,3,5,0,true)
+			destroy(cur)
+		end
+	end
+	getAllBonus()
+
 	self.sp=0
 	self.large=1
-	getAllBonus()
 	for i=1,60 do
 		coroutine.yield(1)
 		if self.state~="time" then
@@ -156,19 +174,39 @@ function timeAttack(self)
 end
 
 function player:gainSP(delta)
-	player.sp=player.sp+delta
-	player.sp=math.max(0,player.sp)
-	player.sp=math.min(5000,player.sp)
+	if game.audio.record.difficulty>3 then
+		player:addCounter("score",math.max(0,delta))
+	else
+		player.sp=player.sp+delta
+		player.sp=math.max(0,player.sp)
+		player.sp=math.min(5000,player.sp)
+	end
 end
 
-function player:gainScore(delta)
-	self.count.score=self.count.score+delta
+function player:addCounter(type,delta)
+	delta=delta or 1
+	self.count[type]=math.max(0,self.count[type]+delta)
 end
 
 function player:move()
-	local dx=(keyDown["right"]-keyDown["left"])*self.speed.fast
-	local dy=(keyDown["down"]-keyDown["up"])*self.speed.fast
-	if (dx~=0 or dy~=0 or keyDown["dodge"]~=0) and self.state~="appear" then
+	local dx,dy,dodge,rep
+	if game.replay then
+		rep=game.replay.state
+		dodge=rep.first["dodge"]
+	else
+		rep=keyDown
+		dodge=firstPress("dodge")
+	end
+	dx=rep["right"]-rep["left"]
+	dy=rep["down"]-rep["up"]
+
+	if self.immortal>0 then
+		self.immortal=self.immortal-1
+	end
+	if self.large>0 then
+		self.large=self.large-0.02
+	end
+	if (dx~=0 or dy~=0 or dodge) and self.state~="appear" then
 		self.t.lmove=0
 	else
 		self.t.lmove=self.t.lmove+1
@@ -178,16 +216,18 @@ function player:move()
 			getAllBonus()
 		end
 	end
-	if firstPress("dodge") and player.state~="dying" then
+	if dodge and player.state~="dying" then
 		player:gainSP(-100)
 	end
 	if player.domain.touched>0 then
+		player:addCounter("graze",player.domain.touched)
+		player:addCounter("score",(player.domain.touched^2)*4+player.domain.touched*10)
 		local gain=player.speed.gain*player.domain.touched
 		playSound(game.sound.graze,true)
 		player:gainSP(gain)
 	end
 	if player.state=="dying" then
-		if firstPress("dodge") and player.sp>=1000 then
+		if dodge and player.sp>=1000 and game.audio.record.difficulty<=3 then
 			player.state="time"
 			player.immortal=180
 --			game.interval["bullet"]=5
@@ -203,13 +243,15 @@ function player:move()
 	if player.state=="appear" then
 		return
 	end
-	if keyDown["slow"]>0 then
-		dx=dx/self.speed.fast*self.speed.slow
-		dy=dy/self.speed.fast*self.speed.slow
+	if rep["slow"]>0 then
+		dx=dx*self.speed.slow
+		dy=dy*self.speed.slow
 		if self.sign==nil then
 			self.sign=255
 		end
 	else
+		dx=dx*self.speed.fast
+		dy=dy*self.speed.fast
 		if self.sign then
 			self.sign=nil
 		end
@@ -269,7 +311,6 @@ function player:draw(k,alpha)
 		else
 			love.graphics.setColor(255,255,255,255*alpha)
 		end
-		self.immortal=self.immortal-1
 	else
 		love.graphics.setColor(255,255,255,255*alpha)
 	end
@@ -287,15 +328,15 @@ end
 
 function player:effect()
 	if self.large>0 then
-		self.large=self.large-0.02
 		local k=(3.5-self.large*2)
 		player:draw(k,self.large)
 	end
+	local r=self.r+1
 
 	if self.sign then
 		for i=-90,self.sp*360/5001-90,10 do
-			local len=self.R
-			local tmp=ran:float(self.r,self.R)/3
+			local len=30
+			local tmp=math.random(r*10,self.R*10)/30
 			local x1=self.x+math.cos(i*C.PI/180)*(len+tmp)
 			local y1=self.y+math.sin(i*C.PI/180)*(len+tmp)
 			local x=self.x+math.cos(i*C.PI/180)*(len-tmp)
@@ -309,11 +350,11 @@ function player:effect()
 			love.graphics.line(x,y,x1,y1)
 		end
 		for i=5,1,-1 do
-			love.graphics.setColor(255,0,0,32)
-			love.graphics.circle("fill",self.x,self.y,self.r+i)
+			love.graphics.setColor(255,0,0,64)
+			love.graphics.circle("fill",self.x,self.y,r+i)
 		end
 		love.graphics.setColor(255,255,255,255)
-		love.graphics.circle("fill",self.x,self.y,self.r)
+		love.graphics.circle("fill",self.x,self.y,r)
 	end
 	if self.domain.touched>0 then
 		self.graze:emit(4)

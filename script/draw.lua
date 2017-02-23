@@ -4,7 +4,7 @@ function drawBackground()
 	love.graphics.setCanvas(game.tmpCanvas)
 	love.graphics.setColor(255,255,255,255)
 
-	local curt=getMusicPosition()
+	local curt=game.audio.pos
 	local pos=1-toRange(curt,game.audio.bpm)/game.audio.bpm
 	local R=game.graphics.height
 	local function drawDistCircle(dist)
@@ -43,10 +43,24 @@ function drawObject(list)
 	end
 end
 
+--画出判定
+function showShape()
+	for i=#(bullet),1,-1 do
+		local cur=bullet[i]
+		if cur.type=="bullet" then
+			cur:draw("fill")
+		end
+	end
+	if game.debug>=5 then
+		player.shape:draw("line")
+		player.domain:draw("line")
+	end
+end
+
 --游戏
 function drawGame(canvas)
 	local pre=love.graphics.getBlendMode()
-	local curt=getMusicPosition()
+	local curt=game.audio.pos
 	local T={
 		prepare=(5+curt)/5,
 		duration=curt/game.audio.duration,
@@ -77,7 +91,7 @@ function drawGame(canvas)
 	love.graphics.origin()
 	if player.state=="time" then
 		love.graphics.setCanvas(game.canvas)
-		for i=2,#(game.save),2 do
+		for i=3,#(game.save),3 do
 			love.graphics.setColor(255,255,255,200*i/(#(game.save)+1))
 			love.graphics.draw(game.save[i])
 		end
@@ -109,17 +123,6 @@ function drawGame(canvas)
 
 	love.graphics.origin()
 	love.graphics.setBlendMode("alpha","premultiplied")
-	love.graphics.setLineWidth(1)
-
-	if T.over==0 then
-		love.graphics.setColor(0,255,255)
-		love.graphics.rectangle("fill",game.graphics.dx,game.height-30,game.graphics.width*T.prepare,5)
-		love.graphics.setColor(255,255,255)
-		love.graphics.rectangle("fill",game.graphics.dx,game.height-30,game.graphics.width*T.duration,5)
-	else
-		love.graphics.setColor(255,255,255)
-		love.graphics.rectangle("fill",game.graphics.dx+game.graphics.width*T.over,game.height-30,game.graphics.width*(1-T.over),5)
-	end
 
 	for i=1,#(game.active) do
 		local shader=game.active[i]
@@ -147,9 +150,52 @@ function drawGame(canvas)
 	end
 
 	love.graphics.setBlendMode(pre)
+	
+	--绘制UI
+	love.graphics.setColor(255,255,255)
+	love.graphics.draw(game.image.bg)
+	local barL=game.graphics.width+game.graphics.dx*2
+	love.graphics.draw(game.image["diff"..game.audio.record.difficulty],(game.width-barL)/2+barL,
+		game.graphics.dy,0,1,1,100,25)
+	love.graphics.setFont(game.graphics.font.eng)
+	love.graphics.printf(player.count.score,840,225,800,"right",0,0.25)
+	love.graphics.printf(player.count.graze,840,265,800,"right",0,0.25)
+	love.graphics.printf(string.format("%.3f / 5.000",player.sp/1000),840,305,800,"right",0,0.25)
+	if game.audio.record.difficulty<=3 then
+		cur=string.format("%d (+%d)",player.count.death,player.count.bomb)
+	else
+		cur=tostring(player.count.death)
+	end
+	love.graphics.printf(cur,840,345,800,"right",0,0.25)
+
+	love.graphics.setFont(game.graphics.font.chn)
+	local tmp=getMusicName(game.audio.id).."\n"
+	if T.over>0 or T.prepare<1 then
+		tmp=tmp.."--:--"
+	else
+		tmp=tmp..getTimeFormat(game.audio.music:tell())
+	end
+	tmp=tmp.." / "..getTimeFormat(game.audio.duration)
+	love.graphics.printf(tmp,700,80,1440,"center",0,0.25)
+	love.graphics.setColor(255,0,0)
+
+	love.graphics.setFont(game.graphics.font.digit)
+	love.graphics.print(tostring(love.timer.getFPS()),700,20,0,0.5)
+
+	love.graphics.setLineWidth(1)
+	if T.over==0 then
+		love.graphics.setColor(0,255,255)
+		love.graphics.rectangle("fill",game.graphics.dx,game.height-20,game.graphics.width*T.prepare,5)
+		love.graphics.setColor(255,255,255)
+		love.graphics.rectangle("fill",game.graphics.dx,game.height-20,game.graphics.width*T.duration,5)
+	else
+		love.graphics.setColor(255,255,255)
+		love.graphics.rectangle("fill",game.graphics.dx+game.graphics.width*T.over,game.height-20,game.graphics.width*(1-T.over),5)
+	end
+
 	if game.debug>0 then
-		love.graphics.setColor(255,255,255,255)
-		drawText(love.timer.getFPS().."FPS Bullet: "..#(bullet).." Object: "..#(object),20,10,10)
+		love.graphics.setColor(255,255,255)
+		drawText("Bullet: "..#(bullet).." Object: "..#(object),20,10,10)
 		local content="task:\n"
 		for k,v in pairs(TM) do
 			if type(v)=="table" and k~="func" then
@@ -159,33 +205,44 @@ function drawGame(canvas)
 		content=content.."Score: "..player.count.score
 		drawText(content,20,10,30)
 	end
-
-	if T.over==1 and love.draw~=endGame then
-		game.push(love.update,endGame)
-	end
 end
 
 --菜单
 function drawMenu(canvas)
 	local pre=love.graphics.getBlendMode()
+	local cur, tmp
+	tmp={"Easy","Normal","Hard","Lunatic"}
 	love.graphics.setCanvas(game.canvas)
 	love.graphics.clear()
-	love.graphics.setColor(255,255,255,255)
-	drawText("Select Music",50,50,30,"chn")
-	drawText("上/下:移动光标 Enter/Z:确认 ESC:返回上级界面\n拖入音乐文件以增加音乐。",26,50,630,"chn")
+	love.graphics.setColor(255,255,255)
+	if game.replay then
+		cur="Select Music [Replay]"
+	else
+		cur="Select Music ["..tmp[mList.difficulty].."]"
+	end
+	drawText(cur,50,50,30,"chn")
+	cur="上/下:移动光标 Enter/Z:确认 ESC:返回上级界面"
+	if not game.replay then
+		cur=cur.."\n拖入音乐文件以增加音乐。"
+	end
+	drawText(cur,26,50,630,"chn")
 
 	love.graphics.setCanvas(game.bCanvas)
 	love.graphics.clear()
-	local cur, tmp
 	if mList.cnt==0 then
-		drawText("还没有音乐哦！请拖入音乐文件来识别并生成谱面。",26,50,130,"chn")
+		drawText("还没有音乐文件！",26,50,130,"chn")
 	elseif mList.cnt<5 then
 		for i=1,mList.cnt do
 			cur=mList[i]
 			tmp=getMusicName(i)
 			drawText(tmp,26,50,100*i,"chn")
 			drawText(string.format("Time:%2d:%02d",math.floor(cur.duration/60),math.floor(cur.duration)%60),40,50,100*i+30)
-			drawText(string.format("Highscore:%010d",cur.highscore[mList.difficulty]),40,400,100*i+30)
+			if game.replay then
+				tmp="Replay: "..#(cur.replay)
+			else
+				tmp=string.format("Highscore:%010d",cur.highscore[mList.difficulty])
+			end
+			drawText(tmp,40,400,100*i+30)
 		end
 	else
 		local pos=math.floor(cursor.showpos/100)
@@ -193,20 +250,24 @@ function drawMenu(canvas)
 			local curpos=i*100-cursor.showpos
 			local num=(i-1+mList.cnt)%mList.cnt+1
 			cur=mList[num]
-			tmp=strSplit(cur.file,"/\\")
-			tmp=num..". "..strcut(tmp[#(tmp)],50)
+			tmp=getMusicName(num)
 			drawText(tmp,26,50,curpos,"chn")
 			drawText(string.format("Time:%2d:%02d",math.floor(cur.duration/60),math.floor(cur.duration)%60),40,50,curpos+30)
-			drawText(string.format("Highscore:%010d",cur.highscore[mList.difficulty]),40,400,curpos+30)
+			if game.replay then
+				tmp="Replay: "..#(cur.replay)
+			else
+				tmp=string.format("Highscore:%010d",cur.highscore[mList.difficulty])
+			end
+			drawText(tmp,40,400,curpos+30)
 		end
 	end
 	if mList.cnt>0 then
 		love.graphics.setLineWidth(3)
-		love.graphics.setColor(0,255,255,255)
+		love.graphics.setColor(0,255,255)
 		love.graphics.rectangle("line",30,toRange(cursor.rectpos-10-cursor.showpos,mList.cnt*100),game.width-60,100)
 	end
 
-	love.graphics.setColor(255,255,255,255)
+	love.graphics.setColor(255,255,255)
 	love.graphics.setCanvas(game.canvas)
 	love.graphics.setBlendMode("alpha","premultiplied")
 	love.graphics.setShader(game.shader.menu)
@@ -219,10 +280,13 @@ function drawMenu(canvas)
 	game.shader.glow:send("width",game.width)
 	love.graphics.setShader(game.shader.glow)
 	if canvas then
+		love.graphics.setCanvas(game.preCanvas)
+		love.graphics.clear()
 		renderTo(game.canvas,game.preCanvas)
 	else
 		renderTo(game.canvas)
 	end
+	love.graphics.setShader()
 end
 
 --显示文字
@@ -237,74 +301,28 @@ end
 function drawMidText(content,size,y,typ)
 	local x=game.width/2
 	local len=strlen(content)
-	x=x-len*size/4
+	x=x-len*size*1.1/4
 	drawText(content,size,x,y,typ)
-end
-
---准备游戏
-function prepareGame(canvas)
-	drawGame(true)
-	SD.state="play"
-	love.graphics.setCanvas(game.tmpCanvas)
-	love.graphics.clear()
-	renderTo(game.preCanvas,game.tmpCanvas)
-	if game.frame<300 then
-		if game.frame<60 then
-			local tmp=game.frame*255/60
-			love.graphics.setColor(tmp,tmp,tmp)
-		else
-			love.graphics.setColor(255,255,255)
-		end
-		if canvas then
-			renderTo(game.tmpCanvas,game.preCanvas)
-		else
-			renderTo(game.tmpCanvas)
-		end
-	else
-		game.audio.music:setVolume(mList.setting.bgm)
-		game.audio.music:play()
-		love.draw=drawGame
-		love.draw()
-	end
-end
-
---结束
-function endGame(canvas)
-	SD.state="end"
-	game.preDraw(true)
-	local curt=getMusicPosition()
-	love.graphics.setCanvas(game.tmpCanvas)
-	love.graphics.clear()
-	renderTo(game.preCanvas,game.tmpCanvas)
-	if curt-game.audio.duration-5<1 then
-		local tmp=255-(curt-game.audio.duration-5)*255
-		love.graphics.setColor(tmp,tmp,tmp)
-		if canvas then
-			renderTo(game.tmpCanvas,game.preCanvas)
-		else
-			renderTo(game.tmpCanvas)
-		end
-	else
-		addGradual(love.update,updateOption,love.draw,drawOption,0,30,true,function(...)
-			while game.pop() do end
-			SD.first=0
-		end)
-		option=game.report
-		game.report[1].id=game.audio.id
-		checkAchievement("firstGame")
-		addSongCounter(game.audio.id)
-	end
 end
 
 --画提示
 function drawSignal(self)
 	local wait=game.audio.bpm*4
-	local curt=getMusicPosition()
-	for i=1,#(self) do
+	local curt=game.audio.pos
+	for i=#(self),1,-1 do
 		local cur=self[i]
+		if not cur.color then
+			cur.color={255,0,0}
+		end
+		if not cur.type then
+			cur.type="default"
+		end
 		if cur.t-wait<curt and cur.t>curt then
 			local r=(cur.t-curt)/wait
 			warnpat[cur.type].run(cur,r)
+		end
+		if cur.t<curt then
+			table.remove(self,i)
 		end
 	end
 end
@@ -325,21 +343,25 @@ function drawOption(canvas)
 		love.graphics.setShader()
 	end
 
-	if option.draw then
-		option.draw(option)
-	end
 	if canvas then
 		canvas=game.preCanvas
+	end
+
+	love.graphics.setCanvas(game.canvas,game.tmpCanvas)
+	love.graphics.clear()
+
+	if option.draw then
+		love.graphics.setCanvas(game.canvas)
+		option.draw(option)
 	end
 	
 	love.graphics.setColor(128,128,128)
 	renderTo(game.pCanvas,canvas)
-	love.graphics.setCanvas(game.canvas,game.tmpCanvas)
-	love.graphics.clear()
 
-	local barL=game.width/2-230
-	local barR
-	local endY=option[#(option)].y2+30
+	local width=option.width or 230
+	local fontsize=option.fontsize or 30
+	local barL=game.width/2-width
+	local endY=option[#(option)].y2+fontsize/2
 	local confirm=option.confirm
 
 	love.graphics.setCanvas(game.tmpCanvas)
@@ -348,10 +370,10 @@ function drawOption(canvas)
 	love.graphics.setColor(0,255,255)
 	love.graphics.setLineWidth(3)
 	if confirm then
-		love.graphics.rectangle("line",confirm.x1,endY+90,230,45)
+		love.graphics.rectangle("line",confirm.x1,endY+90,width,45)
 		drawText(confirm.desc,20,barL,endY,"chn")
 	else
-		love.graphics.rectangle("line",barL-20,option.y1,(game.width/2-barL+20)*2,option.y2-option.y1)
+		love.graphics.rectangle("line",barL-20,option.y1,(width+20)*2,option.y2-option.y1)
 	end
 	love.graphics.setColor(255,255,255)
 	if confirm then
@@ -360,13 +382,13 @@ function drawOption(canvas)
 		else
 			love.graphics.setCanvas(game.canvas)
 		end
-		drawText("是",30,game.width/2-130,endY+90,"chn")
+		drawText("是",30,game.width/2-width/2-15,endY+90,"chn")
 		if confirm.x1>=game.width/2-20 then
 			love.graphics.setCanvas(game.tmpCanvas)
 		else
 			love.graphics.setCanvas(game.canvas)
 		end
-		drawText("否",30,game.width/2+100,endY+90,"chn")
+		drawText("否",30,game.width/2+width/2-15,endY+90,"chn")
 	end
 
 	for i=1,#(option) do
@@ -380,27 +402,31 @@ function drawOption(canvas)
 			love.graphics.setCanvas(game.canvas)
 		end
 		if cur.type=="button" then
-			drawMidText(cur.text,30,cur.y1,"chn")
+			local lang=cur.lang or "chn"
+			drawMidText(cur.text,fontsize,cur.y1,lang)
 		elseif cur.type=="slider" then
-			drawMidText(cur.text,30,cur.y1,"chn")
+			local lang=cur.lang or "chn"
+			drawMidText(cur.text,fontsize,cur.y1,lang)
 			love.graphics.setLineWidth(5)
-			barR=cur.value*400+barL
-			love.graphics.line(barL-1,cur.y1+50,barR,cur.y1+50)
-			drawText(cur.vtext,30,barL+410,cur.y1+30)
+			local barR=cur.value*(width-30)*2+barL
+			local tmp=fontsize*1.7+cur.y1
+			love.graphics.line(barL-1,tmp,barR,tmp)
+			drawText(cur.vtext,fontsize,barL+(width-30)*2+10,cur.y1+fontsize)
 		elseif cur.type=="list" then
-			drawText(cur.text,30,barL,cur.y1,"chn")
+			drawText(cur.text,fontsize,barL,cur.y1,"chn")
+			local quarter=math.floor(fontsize/4)
 			if #(cur.list)>1 then
-				local triangle={game.width/2,cur.y1+22,game.width/2+20,cur.y1+9,game.width/2+20,cur.y1+35}
+				local triangle={game.width/2,cur.y1+quarter*3,game.width/2+quarter*3,cur.y1+quarter,game.width/2+quarter*3,cur.y1+quarter*5}
 				love.graphics.polygon("fill",triangle)
-				triangle[1]=triangle[1]+220
-				triangle[3]=triangle[3]+180
-				triangle[5]=triangle[5]+180
+				triangle[1]=triangle[1]+width+quarter*3-30
+				triangle[3]=triangle[3]+width-quarter*3-30
+				triangle[5]=triangle[5]+width-quarter*3-30
 				love.graphics.polygon("fill",triangle)
 			end
 			local text=cur.list[cur.pos]
 			local len=strlen(text)
 			local lang=cur.lang or "chn"
-			drawText(text,30,game.width/2+110-len*8,cur.y1,lang)
+			drawText(text,fontsize,game.width/2+width/2-len*(quarter+1),cur.y1,lang)
 		end
 	end
 
@@ -414,47 +440,164 @@ function drawOption(canvas)
 end
 
 --绘制得分界面
-function drawReport(canvas)
-	
+function drawReport(self)
+	local width=self.width or 230
+	local val1=math.max(C.eps,self.score)
+	local val2=math.max(C.eps,self.highscore)
+	if self.death==0 then val1=math.max(C.eps,self.score*1.2) end
+	local bar=math.min(1,self.bar)
+	local rate=val1/val2
+	local len1,len2
+	local triangle={-5,-20,5,-20,0,-5}
+	if val1>=val2*1.5 then
+		len1=width*1.8
+		len2=len1/rate
+	else
+		len2=width*1.2
+		len1=len2*rate
+	end
+	len1=len1*bar
+	if self.death==0 then len1=len1*5/6 end
+
+	len1=math.max(len1,1)
+	len2=math.max(len2,1)
+	val1=math.floor(self.score*bar)
+	val2=math.floor(val2)
+
+	love.graphics.setFont(game.graphics.font.digit)
+	love.graphics.setColor(255,255,255)
+	local leftbar=game.width/2-width
+	love.graphics.printf("HIGHSCORE\n"..val2,leftbar+len2-100,240,800,"center",0,0.25)
+	local cur=copyFrom(triangle)
+	for i=1,#(cur),2 do
+		cur[i]=cur[i]+leftbar+len2
+		cur[i+1]=cur[i+1]+320
+	end
+	love.graphics.polygon("fill",cur)
+	love.graphics.rectangle("fill",leftbar,320,len2,5)
+
+	love.graphics.setColor(0,255,255)
+	cur="SCORE"
+	if self.death==0 then
+		if self.bar>2 then cur=cur.." " end
+		if self.bar>3 then cur=cur.."x" end
+		if self.bar>4 then cur=cur.."1" end
+		if self.bar>5 then cur=cur.."." end
+		if self.bar>6 then cur=cur.."2" end
+	elseif self.score>self.highscore and self.bar>100 then
+		love.graphics.setColor(255,0,0,self.bar-100)
+		love.graphics.print("NEW HIGHSCORE!",leftbar+len1+5,205,0,0.25)
+		love.graphics.setColor(0,255,255)
+	end
+	cur=cur.."\n"..val1
+	love.graphics.printf(cur,leftbar+len1-100,140,800,"center",0,0.25)
+	cur=copyFrom(triangle)
+	for i=1,#(cur),2 do
+		cur[i]=cur[i]+leftbar+len1
+		cur[i+1]=cur[i+1]+220
+	end
+	love.graphics.polygon("fill",cur)
+	love.graphics.rectangle("fill",leftbar,220,len1,5)
 end
 
 --渐变
 function drawGradual(canvas)
 	local data=game.graphics.data
 	local preD=data.preD
-	local preU=data.preU
 	local preT=data.preT
 	local nextD=data.nextD
-	local nextU=data.nextU
 	local nextIgnore=data.nextIgnore
 	local nextT=data.nextT
 	local alpha
-	if not data.frame then
-		data.frame=0
-		love.update=preU
-	end
-	data.frame=data.frame+1
 	if data.frame<=preT then
 		alpha=255-(preT-data.frame)/preT*255
-		preD()
+		preD(canvas)
 	else
 		alpha=255-(data.frame-preT)/nextT*255
-		nextD()
+		nextD(canvas)
+	end
+	if canvas then
+		love.graphics.setCanvas(game.preCanvas)
+	else
+		love.graphics.setCanvas()
 	end
 	love.graphics.setColor(0,0,0,alpha)
 	love.graphics.rectangle("fill",0,0,game.width,game.height)
+end
 
-	if data.frame==preT then
-		if not nextIgnore then
-			love.update=nextU
-		end
-		if data.onEnd then
-			data.onEnd(data)
+--输入文字
+function drawInputText(canvas)
+	local keys=game.keyboard
+	local size=keys.size
+	local text=keys.text
+
+	if SD.first==0 then
+		SD.first=1
+		game.preDraw(true)
+		game.shader.blur:send("radius",7)
+		game.shader.blur:send("height",game.height)
+		game.shader.blur:send("width",game.width)
+		love.graphics.setCanvas(game.keyCanvas)
+		love.graphics.clear()
+		love.graphics.setShader(game.shader.blur)
+		love.graphics.setColor(255,255,255,255)
+		renderTo(game.preCanvas,game.keyCanvas)
+		love.graphics.setShader()
+
+		keys.res=""
+		keys.x=game.width/2-size*5
+		keys.y=200
+		keys.frame=0
+		keys.pos={x=1,y=1}
+	end
+
+	if canvas then
+		canvas=game.preCanvas
+	end
+	local px,py=game.width/2-size*5,200
+	
+	love.graphics.setCanvas(game.canvas,game.tmpCanvas)
+	love.graphics.clear()
+	love.graphics.setColor(128,128,128)
+	renderTo(game.keyCanvas,canvas)
+
+	love.graphics.setCanvas(game.tmpCanvas)
+	love.graphics.setColor(255,255,255)
+	drawMidText(keys.title,50,50,"chn")
+	drawText(text,20,px,py+size*(#(keys)+1),"chn")
+	if keys.frame%30<15 then
+		drawMidText(keys.res.."_",50,130)
+	else
+		drawMidText(keys.res.." ",50,130)
+	end
+	love.graphics.setColor(0,255,255)
+	love.graphics.setLineWidth(3)
+	love.graphics.rectangle("line",keys.x,keys.y,size+5,size+5)
+
+	love.graphics.setColor(255,255,255)
+	for i=1,#(keys) do
+		for j=1,#(keys[i]) do
+			if i==#(keys) and j>=#(keys[i])-2 then
+				love.graphics.setColor(0,255,255)
+			end
+			local x=px+(j-1)*size
+			local y=py+(i-1)*size
+			if x>=keys.x and x<=keys.x+5 and y>=keys.y and y<=keys.y+5 then
+				love.graphics.setCanvas(game.tmpCanvas)
+			else
+				love.graphics.setCanvas(game.canvas)
+			end
+			drawText(keys[i][j],size,x+15,y-3)
 		end
 	end
-	if data.frame==preT+nextT then
-		love.draw=nextD
-		love.update=nextU
-		game.graphics.data=nil
-	end
+
+	--分别绘制不同shader
+	love.graphics.setColor(255,255,255)
+	love.graphics.setShader(game.shader.glow)
+	game.shader.glow:send("radius",10)
+	game.shader.glow:send("height",game.height)
+	game.shader.glow:send("width",game.width)
+	renderTo(game.tmpCanvas,canvas)
+	love.graphics.setShader()
+	renderTo(game.canvas,canvas)
 end

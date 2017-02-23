@@ -5,11 +5,11 @@ A lua danmaku project and music rhythm game
 
 ## Author
 
-Shimatsukaze @ bilibili
+Shimatsukaze
 
-792491320 @ qq.com
+Email: 792491320 @ qq.com
 
-KCFindstr @ github
+Github: KCFindstr
 
 2016/12/11
 
@@ -36,8 +36,14 @@ http://hc.readthedocs.org/
 
 ## Update Log
 
-V0.1 Beta
-- The initial version (Not available)
+V0.3 Beta
+- Game UI
+- Changed some player constants
+- Replay mode
+- Developer mode
+- Score calculation
+- Modified format to save tables in files
+- Bugs fixed
 
 V0.2 Beta
 - Menu UI
@@ -47,3 +53,6 @@ V0.2 Beta
 - Modified format to save tables in files
 - Random number generator
 - Bugs fixed
+
+V0.1 Beta
+- The initial version (Unavailable)
